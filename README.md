@@ -28,7 +28,7 @@ flowchart TD
 - Explorers read and report with evidence, and say what they did not search.
 - Workers edit only the files named and run the named checks until they are green.
 - A fresh reviewer judges the result against the acceptance list and answers PASS, PASS-WITH-NOTES, FAIL or ESCALATE. On FAIL the same worker fixes it, and the reviewer looks again.
-- The orchestrator reads the result itself before it accepts, and trusts no report.
+- The orchestrator works from the delegates' reports during the loop, each verified by its delegate before hand-back, and reads the result itself once, as the last step before it accepts.
 - Delegates never ask anyone anything. They run only what the brief and the session notes allow, and hand back whatever they may not run.
 - The orchestrator learns the sandbox and permission settings once per session, keeps them in those notes, and passes them on.
 - Nothing irreversible happens without you: no commits, no deploys, no messages to real people.
