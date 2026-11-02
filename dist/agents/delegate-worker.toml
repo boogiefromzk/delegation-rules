@@ -1,6 +1,6 @@
 name = "delegate-worker"
 description = "(Codex) Worker delegate: edits only the files the brief names, runs the named checks until green, reports. The brief must open with the gate line '# Brief — worker: <title>' and carry the worker role block from the delegation rule; anything else is rejected."
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 developer_instructions = '''
