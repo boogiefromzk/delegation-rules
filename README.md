@@ -1,6 +1,6 @@
 # delegation-rules
 
-delegation-rules is an agent delegation system for Claude Code, Cursor and Codex that saves tokens with no compromise on quality: the expensive model sets up and verifies every task, while cheap delegates do the work in reviewed loops.
+delegation-rules is an agent delegation system for Claude Code, Cursor, Codex and Zed that saves tokens with no compromise on quality: the expensive model sets up and verifies every task, while cheap delegates do the work in reviewed loops.
 
 ## How it works
 
@@ -41,10 +41,17 @@ flowchart TD
   - Cursor: `delegate-explore.md`, `delegate-worker.md`, `delegate-review.md`.
   - Codex: `delegate-explore.toml`, `delegate-worker.toml`, `delegate-review.toml`.
 - `skills/enable-delegation/` is the skill that checks your setup.
-- `AGENTS.md` is a link to the rule, for Codex.
+- `hooks/grok-delegate.sh` is the Grok launcher for Claude Code (see "Grok in Claude Code" below).
+- `AGENTS.md` is a link to the rule, for Codex and Zed.
 
 ## Getting started
 
-1. Copy the contents of [`dist/`](dist/) into the settings folder of your tool: `~/.claude`, `~/.cursor` or `~/.codex`. The folder may differ, especially on Windows. Links instead of copies work too and follow updates.
+1. Copy the contents of [`dist/`](dist/) into the settings folder of your tool: `~/.claude`, `~/.cursor` or `~/.codex`; for Zed, link (or copy) `~/.config/zed/AGENTS.md` to `dist/AGENTS.md` and `~/.agents/skills/enable-delegation` to `dist/skills/enable-delegation` — Zed has no agent files. The folder may differ, especially on Windows. Links instead of copies work too and follow updates.
 2. Start a new session. `/enable-delegation` now appears; run it. It checks that every file is in place and matches the model table at the top of the rule, tells you what only you can do, and probes the delegates.
 3. To change models or effort, edit the table at the top of the rule and the matching lines in the agent files, then run the skill again.
+
+## Grok in Claude Code
+
+Claude Code can only run Claude models as subagents, so its delegates are Sonnet by default. With xAI's `grok` command-line tool installed and logged in, the delegates can run on Grok 4.7 instead: the orchestrator hands each brief to `grok-delegate`, a small script that checks the brief, starts `grok` with the role's tool limits, and returns Grok's report word for word.
+- `/enable-delegation` detects `grok`, asks whether you want Grok delegates, and shows the settings lines and links to add; it writes nothing itself.
+- The switch is one line in the `env` block of `~/.claude/settings.json`: `"DELEGATE_TO": "grok"` for Grok; the line removed for Sonnet.

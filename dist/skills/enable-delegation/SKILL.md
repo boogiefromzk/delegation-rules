@@ -1,7 +1,7 @@
 ---
 name: enable-delegation
 description: >-
-  Set up or check the delegation rule for the tool you are running in — Claude Code, Cursor or Codex — on macOS, Linux or Windows.
+  Set up or check the delegation rule for the tool you are running in — Claude Code, Cursor, Codex or Zed — on macOS, Linux or Windows.
   The user makes the links: the rule (role blocks included) and the nine thin agent files.
   For Cursor, the enable-delegation skill must be available on its own — a symlink to that folder, or a copy of it.
   Checks the three delegate roles against the rule's table, never overwrites the user's files, and lists what only the user can do.
@@ -10,7 +10,7 @@ description: >-
 
 # Enable delegation
 
-Set up **only the tool you are running in** — your own system prompt tells you which one; if it doesn't, ask.
+Set up **only the tool you are running in** — your own system prompt tells you which one; if it doesn't, ask. Zed's says "You are the Zed coding agent running inside the Zed editor".
 
 **Sources — everything you place comes from the repo's `dist` folder, nothing from memory.** Resolve links first. The path you were given may be `~/.cursor/skills/enable-delegation/…` or `~/.claude/skills/enable-delegation/…`. When `enable-delegation` is a symlink, the real file is `dist/skills/enable-delegation/SKILL.md` and `$REPO` is two levels above that real file (the `dist` folder). When it is a copy, walking up from the copy lands in the user's skills folder, which is not `$REPO`; `$REPO` is the clone's `dist`. Call `$REPO` wherever the clone lives; never a machine path. The repo root above it holds `README.md`: how to start and how it works. Sandbox, permission and hook settings are the user's security settings, outside this project; the rule makes the orchestrator read them at the start of every session ("Controlling delegates", item 2).
 - `$REPO/rules/delegation.md` — the rule. Its model table gives each tool's model id and the effort per role (columns Explore / Worker / Reviewer). The three role blocks live in it under "Role blocks". `rules/delegation.mdc` is the existing link to `delegation.md` for Cursor.
@@ -38,6 +38,7 @@ A command form that appears in a second bundle script becomes an allow-list entr
 - Claude Code: `settings.json` → `permissions.allow`
 - Cursor: `permissions.json` → `terminalAllowlist`, and `~/.cursor/cli-config.json`
 - Codex: `~/.codex/config.toml`, plus `~/.codex/rules/*.rules`
+- Zed: `~/.config/zed/settings.json` → `agent.tool_permissions` (per tool `always_allow` / `always_confirm` / `always_deny` regex lists) and `agent.sandbox_permissions` (`write_paths`, `network_hosts`).
 
 ## Claude Code
 
@@ -105,21 +106,72 @@ prefix_rule(
 9. **unverified on this machine** — sibling project folders the worker must edit go into `writable_roots` under `[sandbox_workspace_write]`.
 10. **unverified on this machine** — delegates' read-only holds only when the orchestrator session runs without live permission overrides. Docs: the parent turn's live runtime overrides are reapplied to children and beat the agent file's `sandbox_mode`. Never run the Codex orchestrator with `--yolo` / `--dangerously-bypass-approvals-and-sandbox` when read-only delegates matter; the write-must-fail probe is what proves it. Children also inherit the parent's `mcp_servers` where the file is silent; assume the sandbox does not govern what an MCP server does, and a read-only brief names the MCP tools the delegate may not call.
 
+## Zed
+
+Zed's native agent is the orchestrator and launches sub-agents itself: `spawn_agent` takes the brief as `message` and the model as `model` — the exact id `list_agents_and_models` prints, `x_ai_subscribed/grok-4.7` for row 1 — plus `session_id` to resume. It has no effort argument and no agent type, and Zed has no agent definition files for native sub-agents: there is nothing to link under `agents/`, and the brief's role block is the delegate's whole instruction set. A sub-agent gets the parent's system prompt (the rule included — the gate line makes it skip it) and the parent's tools minus `spawn_agent`. The rule's gate is what rejects a brief without its block here: the personal `AGENTS.md` reaches every sub-agent, so a message that opens with the gate line and lacks the block gets `BRIEF REJECTED — standing rules missing`. A bare `hello` without the gate line is answered as chat, not rejected.
+
+Zed's folder is `~/.config/zed` (`%APPDATA%\Zed` on Windows); on this machine it may be a symlink — `ls -la` it and follow it.
+
+| Item | Link | Points to |
+| --- | --- | --- |
+| the rule | `~/.config/zed/AGENTS.md` | `$REPO/rules/delegation.md` (or `$REPO/AGENTS.md`, which links to it) |
+| this skill | `~/.agents/skills/enable-delegation` | `$REPO/skills/enable-delegation` (flat: a direct child of `~/.agents/skills`) |
+
+1. `~/.config/zed/AGENTS.md` resolves to `$REPO/rules/delegation.md` (`ls -la`, then `head -n 3` shows the rule's frontmatter).
+2. `~/.agents/skills/enable-delegation/SKILL.md` resolves to this file, and `skill` lists `enable-delegation`.
+3. `list_agents_and_models` lists `x_ai_subscribed/grok-4.7` (the SuperGrok subscription is signed in) and `anthropic/claude-sonnet-5-5` (row 2).
+4. `settings.json` carries the block below, with `agent.subagent_model` a sibling of `agent.default_model` (not inside `sandbox_permissions`), the row-1 model, `enable_thinking: true`, `effort: "xhigh"`. Look, don't rewrite: the file is the user's; show the block and the diff, the user pastes it. With `tool_permissions.default: "allow"` the agent reads, edits and runs sandboxed commands without a dialog; `delete_path` and a recursive `rm` still ask; sandbox escalations (`allow_hosts`, `fs_write_paths`, `unsandboxed`) always ask because the three `allow_*` flags stay false. `write_paths` and `network_hosts` are the user's choice: list only the project parents and hosts they want every delegate to reach without a dialog.
+
+```json
+"agent": {
+  "subagent_model": {
+    "provider": "x_ai_subscribed",
+    "model": "grok-4.7",
+    "enable_thinking": true,
+    "effort": "xhigh"
+  },
+  "tool_permissions": {
+    "default": "allow",
+    "tools": {
+      "delete_path": { "default": "confirm" },
+      "terminal": {
+        "always_confirm": [
+          { "pattern": "\\brm\\s+(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\\b" }
+        ]
+      }
+    }
+  },
+  "sandbox_permissions": {
+    "write_paths": [],
+    "network_hosts": [],
+    "allow_all_hosts": false,
+    "allow_fs_write_all": false,
+    "allow_unsandboxed": false
+  }
+}
+```
+
+5. the effort: `xhigh` is the rule's value, and Zed's docs do not list the levels grok-4.7 accepts. Only the user can check: the thinking/effort control in the Agent Panel's model picker, with Grok 4.7 selected, shows the levels — on this machine it offers Extra High, which is `xhigh` in `settings.json` (the user confirmed it). If a later Zed or model drops it, the user picks the highest shown and the orchestrator changes the table in the rule to match.
+6. a sub-agent cannot spawn: the probe below reports no `spawn_agent` in its tool list.
+7. sibling project folders the delegates must write to are under `write_paths`; the sandbox already allows the open project and `/tmp`.
+
+Probes P1–P4 below apply; launch each as `spawn_agent` with `model: x_ai_subscribed/grok-4.7`. P1 in Zed is the gate line without the block — the message `# Brief — explore: probe`, a blank line, then `Reply with the single word PONG` — because a bare `hello` carries no gate line and is answered as chat; the reply must be exactly `BRIEF REJECTED — standing rules missing`. P2: add to the explore task "then quote the line of your system prompt that names your model, and say whether `spawn_agent` is among your tools" — the line must read "You are powered by the model named Grok 4.7" and the answer must be no (item 6). P3: Zed's own record is its log — Linux `~/.local/share/zed/logs/Zed.log` (other platforms unverified) — one `Thread::send called with model: Grok 4.7` line per launch; note the log's line count before the launches and read only the lines after it. P4: a `git status --porcelain` snapshot of the project taken before the launches must be unchanged after them.
+
 ## Probes
 
 In a new chat or session, for every tool.
 
-P1. Launch each delegate type with the bare prompt `hello`. The reply must be exactly `BRIEF REJECTED — standing rules missing`.
+P1. Launch each delegate type with the bare prompt `hello`. The reply must be exactly `BRIEF REJECTED — standing rules missing`. In Zed the prompt is the gate line without the block instead (the Zed section): there the rule's gate rejects, not an agent file.
 
 P2. Launch with a proper brief: the gate line `# Brief — <role>: <title>`, the role's block pasted verbatim from the rule's "Role blocks" section, then the task "quote the sentence of your standing rules that begins with: Your conclusions / Green mechanical / Quote the acceptance". The reply quotes that role's sentence.
 
-| Role | Claude Code type | Cursor and Codex type | Sentence |
-|---|---|---|---|
-| explore | `Explore` | `delegate-explore` | Your conclusions are only as good as the evidence you attach to them. |
-| worker | `general-purpose` | `delegate-worker` | Green mechanical checks come before the reviewer, never after. |
-| review | `review` | `delegate-review` | Quote the acceptance list before your first finding. |
+| Role | Claude Code type | Cursor and Codex type | Zed | Sentence |
+|---|---|---|---|---|
+| explore | `Explore` | `delegate-explore` | `spawn_agent`, model from the table | Your conclusions are only as good as the evidence you attach to them. |
+| worker | `general-purpose` | `delegate-worker` | the same | Green mechanical checks come before the reviewer, never after. |
+| review | `review` | `delegate-review` | the same | Quote the acceptance list before your first finding. |
 
-P3. Read the model from the tool's own record, never from the agent's self-report. Cursor: the subagent card. Claude Code: the transcript — `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl` (a workflow agent: `…/subagents/workflows/<run>/agent-<id>.jsonl`, with `agent-<id>.meta.json` beside it holding the launch model and agent type); the first assistant line carries `message.model` (the model the API served) and `effort`; it sits after about a dozen attachment lines of up to 30K tokens, so read it with the Read tool at `offset` about 14 (12 to 16 for a direct launch) and `limit` 1, never the whole file — the sandboxed shell cannot see `~/.claude`, and delegates have no Glob to list the folder. Codex: the session log. It is the pinned one. Do not ask the agent which model it is.
+P3. Read the model from the tool's own record, never from the agent's self-report. Cursor: the subagent card. Claude Code: the transcript — `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl` (a workflow agent: `…/subagents/workflows/<run>/agent-<id>.jsonl`, with `agent-<id>.meta.json` beside it holding the launch model and agent type); the first assistant line carries `message.model` (the model the API served) and `effort`; it sits after about a dozen attachment lines of up to 30K tokens, so read it with the Read tool at `offset` about 14 (12 to 16 for a direct launch) and `limit` 1, never the whole file — the sandboxed shell cannot see `~/.claude`, and delegates have no Glob to list the folder. Codex: the session log. Zed: the Zed log, one `Thread::send called with model:` line per launch — the Zed section names the path. It is the pinned one. Do not ask the agent which model it is.
 
 P4. Explore and review only: ask each, with a proper brief — the gate line `# Brief — <role>: <title>`, that role's block pasted verbatim from the rule's "Role blocks" section, then the task — to create a file outside `.debug/` (for example `probe-outside.txt` in the repo root). They must refuse by instruction (Cursor, Claude Code) or be blocked by the sandbox (Codex). `git status --porcelain` of the target must be unchanged. A path inside `.debug/` is not this probe: explore may write `.debug/<task>/` and review may write `.debug/<task>/review-<n>.md`.
 
