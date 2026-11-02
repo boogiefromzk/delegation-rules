@@ -1,6 +1,6 @@
 ---
 name: enable-delegation
-description: Set up or check the delegation rule for the tool you are running in — Claude Code, Cursor or Codex — on macOS, Linux or Windows. Symlinks only, made by the user: the rule (role blocks included), the nine thin agent files, and the skills folder. Checks the three delegate roles against the rule's table, never overwrites the user's files, and lists what only the user can do. Run it once in each tool, and again after the rule's table or a role block changes.
+description: Set up or check the delegation rule for the tool you are running in — Claude Code, Cursor or Codex — on macOS, Linux or Windows. The user makes the links: the rule (role blocks included) and the nine thin agent files. For Cursor, the enable-delegation skill must be available on its own — a symlink to that folder, or a copy of it. Checks the three delegate roles against the rule's table, never overwrites the user's files, and lists what only the user can do. Run it once in each tool, and again after the rule's table or a role block changes.
 ---
 
 # Enable delegation
@@ -55,7 +55,9 @@ Cursor reads rules, agents and skills under `~/.cursor`. The user links them; no
 |---|---|---|
 | Rule | `~/.cursor/rules` | `$REPO/rules` (its `delegation.mdc` → `delegation.md` is the link Cursor's `*.mdc` glob needs) |
 | Delegate agents | `~/.cursor/agents` | `$REPO/agents` |
-| Skills | `~/.cursor/skills` | `$REPO/skills` |
+| Skill | `~/.cursor/skills/enable-delegation` | `$REPO/skills/enable-delegation` |
+
+The skills folder stays the user's. This check passes when `enable-delegation` is available there, and it asks for nothing else. Two forms pass: a symlink `~/.cursor/skills/enable-delegation` → `$REPO/skills/enable-delegation`, which follows later edits of the skill, or a copy of that folder. A copy is a passing form, including where a symlink cannot be created — on Windows a file symlink needs Developer Mode, and without it the copy is the way. A copy does not follow later edits; after this skill changes, copy the folder again. The generic ✗ for "something else is there" does not apply to a copy of this skill: a real directory at that path which contains this skill is ✓. Other entries in the skills folder are the user's; leave them. Do not replace `~/.cursor/skills` with a link or a copy of `$REPO/skills`. If the skills folder is already that whole-folder link, the skill is available, so the availability check still passes — report that this hides any other skills, and do not tell the user to relink the folder to fix it. When the skill is missing, show `ln -s $REPO/skills/enable-delegation ~/.cursor/skills/enable-delegation` on macOS/Linux, or a copy of the folder where a symlink cannot be made. Never show a command that links `~/.cursor/skills` itself to `$REPO/skills`.
 
 How Cursor uses them:
 - Rules are collected from `.cursor/rules/*.mdc` of the workspace and of every parent folder, so the home link covers each workspace under the home folder and nothing outside it. When `~/.cursor` is an ancestor of a workspace, the rule is injected twice: as a user rule and as a parent-walk workspace rule. The user accepts the cost. Document it; do not remove either copy.
